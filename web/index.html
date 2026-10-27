@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Біржа хламу</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div id="login" class="login hidden">
+  <form id="login-form" class="card">
+    <h1>⚖️ Біржа хламу</h1>
+    <p class="muted">Аукціон у стилі MMO: збирай, крафти, перепродавай, дампи.</p>
+    <input id="login-name" placeholder="Ім'я торговця" minlength="2" maxlength="24" required autofocus>
+    <button class="btn primary">Увійти / створити</button>
+    <p class="muted small">Прогрес зберігається на сервері. Ім'я = ваш акаунт.</p>
+  </form>
+</div>
+
+<header class="top">
+  <div class="brand">⚖️ Біржа хламу</div>
+  <div class="clock"><span id="game-time">—</span> <span id="prewarm" class="badge warn hidden">прокрутка історії…</span></div>
+  <div class="speed" id="speed">
+    <button data-speed="pause" title="Пауза">⏸</button>
+    <button data-speed="4">1×</button>
+    <button data-speed="2">2×</button>
+    <button data-speed="0.5">8×</button>
+    <button data-speed="0.2">20×</button>
+  </div>
+  <button class="btn small" id="calc-toggle" title="Калькулятор">🧮</button>
+  <div class="fee" title="Комісія біржі з продажу">Біржа: <b id="fee-pct">5%</b></div>
+  <div class="wallet">
+    <span id="player-name"></span>
+    <span class="money-big" id="gold">—</span>
+    <span class="muted small">капітал <span id="networth">—</span></span>
+    <button class="btn ghost small" id="logout" title="Вийти">⎋</button>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button data-tab="market" class="active">📈 Ринок</button>
+  <button data-tab="inventory">🎒 Інвентар</button>
+  <button data-tab="orders">📋 Мої ордери</button>
+  <button data-tab="craft">🔨 Крафт</button>
+  <button data-tab="workers">👷 Найм</button>
+  <button data-tab="analytics">📊 Аналітика</button>
+  <button data-tab="news">📰 Новини <span id="news-count" class="badge hidden"></span></button>
+  <button data-tab="leaders">🏆 Рейтинг</button>
+  <button data-tab="settings">⚙️ Умови ринку</button>
+</nav>
+
+<main>
+  <!-- MARKET -->
+  <section id="tab-market" class="tab active">
+    <div class="market-layout">
+      <aside class="panel list-panel">
+        <div class="filters">
+          <input id="search" placeholder="🔍 Пошук товару…">
+          <select id="cat-filter"><option value="">Всі категорії</option></select>
+          <select id="sort">
+            <option value="name">За назвою</option>
+            <option value="volume">За обсягом торгів</option>
+            <option value="change">За зміною ціни</option>
+            <option value="change_asc">Найбільше падіння</option>
+            <option value="sat">Перенасичення</option>
+            <option value="price">За ціною</option>
+          </select>
+          <label class="small fav-filter"><input type="checkbox" id="only-fav"> ★ лише обране</label>
+        </div>
+        <div class="item-list" id="item-list"></div>
+        <div class="fav-section" id="fav-section">
+          <div class="fav-head">★ Обране <span class="muted small" id="fav-count"></span></div>
+          <div class="item-list fav-list" id="fav-list"></div>
+        </div>
+      </aside>
+
+      <div class="detail" id="detail">
+        <div class="panel empty-hint">Оберіть товар зліва</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INVENTORY -->
+  <section id="tab-inventory" class="tab">
+    <div class="panel row between">
+      <div><b>⛏️ Сировину видобувають найняті працівники.</b>
+        <span class="muted small">Наймайте збирачів і ремісників, годуйте їх і видавайте інструменти.</span></div>
+      <button class="btn primary" onclick="openTab('workers')">👷 До найму</button>
+    </div>
+    <div class="panel">
+      <div class="row between">
+        <h2>🎒 Інвентар</h2>
+        <div class="muted" id="inv-summary"></div>
+      </div>
+      <div class="inv-tools">
+        <input id="inv-q" placeholder="🔍 Пошук у інвентарі…">
+        <label class="small muted">Групувати
+          <select id="inv-group">
+            <option value="category">за типом</option>
+            <option value="grade">за рангом</option>
+            <option value="liquidity">за ліквідністю</option>
+            <option value="tier">за рівнем крафту</option>
+            <option value="">без груп</option>
+          </select></label>
+        <label class="small muted">Сортувати
+          <select id="inv-sort">
+            <option value="name">за назвою</option>
+            <option value="value">за оцінкою</option>
+            <option value="qty">за кількістю</option>
+            <option value="grade">за рангом</option>
+            <option value="price">за ціною за шт</option>
+          </select></label>
+        <label class="small"><input type="checkbox" id="inv-junk"> сховати хлам</label>
+        <button class="btn small" id="inv-resort" title="Порядок фіксується, щоб рядки не стрибали при оновленні цін. Натисніть, щоб пересортувати за свіжими цінами.">↻ Пересортувати</button>
+        <span class="spacer"></span>
+        <button class="btn small" id="inv-expand">Розгорнути все</button>
+        <button class="btn small" id="inv-collapse">Згорнути все</button>
+      </div>
+      <div id="inv-list"></div>
+    </div>
+  </section>
+
+  <!-- ORDERS -->
+  <section id="tab-orders" class="tab">
+    <div class="panel"><h2>Активні ордери</h2><div id="open-orders"></div></div>
+    <div class="panel"><h2>Мої угоди</h2><div id="my-trades"></div></div>
+    <div class="panel"><h2>Історія ордерів</h2><div id="order-history"></div></div>
+  </section>
+
+  <!-- CRAFT -->
+  <section id="tab-craft" class="tab">
+    <div class="craft-layout">
+      <aside class="panel craft-side">
+        <input id="rc-q" placeholder="🔍 Що зробити або з чого… (назва результату чи інгредієнта)">
+        <div class="filters">
+          <select id="prof-filter"><option value="">Всі професії</option></select>
+          <select id="rc-group" title="Групування">
+            <option value="profession">групи: професія</option>
+            <option value="category">групи: тип</option>
+            <option value="tier">групи: рівень</option>
+            <option value="grade">групи: ранг</option>
+            <option value="">без груп</option>
+          </select>
+          <select id="rc-sort" title="Сортування">
+            <option value="profit">↓ прибуток</option>
+            <option value="margin">↓ маржа</option>
+            <option value="value">↓ цінність результату</option>
+            <option value="liquidity">↓ попит на результат</option>
+            <option value="ready">↓ готовність (є інгредієнти)</option>
+            <option value="tier">↑ рівень</option>
+            <option value="name">назва</option>
+          </select>
+          <button class="btn small" id="rc-resort" title="Порядок фіксується, щоб список не стрибав. Пересортувати за свіжими цінами">↻</button>
+        </div>
+        <div class="filters">
+          <label class="small"><input type="checkbox" id="only-craftable"> можу зробити</label>
+          <label class="small"><input type="checkbox" id="rc-partial"> є частина інгредієнтів</label>
+          <label class="small"><input type="checkbox" id="rc-profit"> лише прибуткові</label>
+          <label class="small"><input type="checkbox" id="rc-workers"> знають мої ремісники</label>
+          <label class="small"><input type="checkbox" id="show-alt" checked> переробка хламу</label>
+        </div>
+        <div class="small muted" id="rc-count"></div>
+        <div class="recipe-list" id="recipe-list"></div>
+      </aside>
+      <div class="panel" id="craft-detail"><div class="empty-hint">Оберіть рецепт, щоб побачити дерево крафту</div></div>
+    </div>
+  </section>
+
+  <!-- WORKERS -->
+  <section id="tab-workers" class="tab">
+    <div class="panel" id="w-summary"></div>
+    <div class="panel">
+      <h2>Мої працівники</h2>
+      <div class="w-grid" id="w-mine"></div>
+    </div>
+    <div class="panel">
+      <div class="row between">
+        <h2>Ринок праці <span class="muted small">оновлюється кожні 6 год гри</span></h2>
+        <div class="filters">
+          <select id="w-role"><option value="">Усі</option><option value="gatherer">Збирачі</option><option value="crafter">Ремісники</option></select>
+          <select id="w-prof"><option value="">Усі професії</option></select>
+          <select id="w-sort"><option value="level">За рівнем</option><option value="wage">За ЗП</option><option value="value">За окупністю</option></select>
+        </div>
+      </div>
+      <div class="w-grid" id="w-market"></div>
+    </div>
+  </section>
+
+  <!-- ANALYTICS -->
+  <section id="tab-analytics" class="tab">
+    <div class="panel">
+      <h2>Індекси категорій <span class="muted small">(ціна / базова вартість, 1.0 = норма)</span></h2>
+      <div class="chart-box tall"><canvas id="chart-indices"></canvas></div>
+    </div>
+    <div class="grid3">
+      <div class="panel"><h3>🚀 Зростання за добу</h3><div id="top-gainers"></div></div>
+      <div class="panel"><h3>📉 Падіння за добу</h3><div id="top-losers"></div></div>
+      <div class="panel"><h3>🌊 Перенасичення (стаків у лотах)</h3><div id="top-saturated"></div></div>
+      <div class="panel"><h3>🏜️ Дефіцит (немає лотів)</h3><div id="top-deficit"></div></div>
+      <div class="panel"><h3>💰 Найбільший оборот</h3><div id="top-volume"></div></div>
+      <div class="panel"><h3>🔨 Найвигідніший крафт</h3><div id="top-craft"></div></div>
+    </div>
+  </section>
+
+  <!-- NEWS -->
+  <section id="tab-news" class="tab">
+    <div class="panel"><h2>Хроніка ринку</h2><div id="news-list"></div></div>
+  </section>
+
+  <!-- LEADERBOARD -->
+  <section id="tab-leaders" class="tab">
+    <div class="panel"><h2>Найбагатші торговці</h2><div id="leaders"></div></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="tab-settings" class="tab">
+    <div class="panel">
+      <h2>Сценарії для навчання</h2>
+      <p class="muted small">Пресет змінює параметри ринку — спробуйте торгувати в різних умовах.</p>
+      <div class="presets" id="presets"></div>
+    </div>
+    <div class="panel">
+      <h2>Параметри</h2>
+      <div class="settings" id="settings-form"></div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h2>Викликати подію</h2>
+        <div class="presets">
+          <button class="btn" data-event="demand_up">📣 Сплеск попиту</button>
+          <button class="btn" data-event="demand_down">🥶 Обвал попиту</button>
+          <button class="btn" data-event="supply_up">🌊 Бум видобутку (перенасичення)</button>
+          <button class="btn" data-event="supply_down">🏜️ Дефіцит сировини</button>
+          <button class="btn" data-event="corner">🐸 Картель скуповує</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Синхронізація з Guild Wars 2</h2>
+        <p class="muted small">Реальні ціни Trading Post (api.guildwars2.com) для схожих ресурсів (руда, деревина,
+          шкіра, тканини…) зсувають попит і пропозицію на нашому ринку. Перша синхронізація фіксує базу,
+          далі впливають відносні зміни.</p>
+        <div id="gw2-status" class="small"></div>
+        <div class="presets">
+          <button class="btn" id="gw2-now">🔄 Синхронізувати зараз</button>
+          <button class="btn ghost" id="gw2-rebase">Скинути базу</button>
+        </div>
+        <div id="gw2-sample" class="small"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="calc" class="calc hidden">
+  <div class="calc-bar" id="calc-bar"><span>🧮 Калькулятор</span><button id="calc-close" title="Закрити">✕</button></div>
+  <div class="calc-expr" id="calc-expr"></div>
+  <div class="calc-display" id="calc-display">0</div>
+  <div class="calc-keys">
+    <button data-k="C" class="op">C</button><button data-k="back" class="op">⌫</button><button data-k="%" class="op">%</button><button data-k="/" class="op">÷</button>
+    <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button><button data-k="*" class="op">×</button>
+    <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button><button data-k="-" class="op">−</button>
+    <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button><button data-k="+" class="op">+</button>
+    <button data-k="neg">±</button><button data-k="0">0</button><button data-k=".">,</button><button data-k="=" class="eq">=</button>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+<div id="feed" class="feed"></div>
+<script src="app.js"></script>
+</body>
+</html>
